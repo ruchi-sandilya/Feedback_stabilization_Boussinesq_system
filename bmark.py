@@ -81,8 +81,8 @@ def create_subdomains(mesh,x1,x2,y1,y2,y3,y4):
     a4 = abs(assemble(Constant(1.0)*ds(3)))
     tol = 1.0e-10
     if (a1 < tol) or (a2 < tol) or (a3 < tol) or (a4 < tol):
-        print 'ERROR IN LENGTH'
+        print ('ERROR IN LENGTH')
     else:
-        print 'EVERYTHING IS ALRIGHT'
+        print ('EVERYTHING IS ALRIGHT')
     
     return sub_domains

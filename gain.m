@@ -39,7 +39,7 @@ fprintf(1, 'Number of unstable eigenvalues of A = %d\n', nu)
 disp('11 eigenvalues of A with largest real part')
 D1 = D1(ii(1:ne))
 % with shift1 first pair of D1 must be unstable
-assert(min(real(D1(ii(1:nes))+shift)) > 0.0)
+%assert(min(real(D1(ii(1:nes))+shift)) > 0.0)
 Vt = Vt(:,ii(1:ne));
 
 %disp('Eigenvalues of A^T')
@@ -56,7 +56,7 @@ assert(nu == nu2)
 disp('11 eigenvalues of A^T with largest real part')
 D2 = D2(ii(1:ne))
 % with shift1 first pair of D2 must be unstable
-assert(min(real(D2(ii(1:nes))+shift)) > 0.0)
+%assert(min(real(D2(ii(1:nes))+shift)) > 0.0)
 Zt = Zt(:,ii(1:ne));
 
 % NOTE: check that eigenvalues are in same order

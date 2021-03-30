@@ -540,19 +540,14 @@ class NSProblem():
           File(filename+"_T.pvd") << T
           File(filename+"_p.pvd") << p
 
-
-
-
-
-
 ###################################################################
    # Runs nonlinear model
-   def run(self,with_control=True):
+   def run(self,with_control=True): # Apply Control TRUE or FALSE
       up = Function(self.X)
       vp = TestFunction(self.X)
       v,S,q = TestFunctions(self.X)
       #hs = HeatSource(degree=2)
-      sp = SourcePerturbation(degree=2)
+      sp = SourcePerturbation(degree=2)  # Perturbation as a source function
 
       Re = Constant(self.Re)
       Gr = Constant(self.Gr)
@@ -561,19 +556,20 @@ class NSProblem():
 
 
       mesh = Mesh("square.xml")
+      # Define  parameters for adapted time stepping
       # hmin, area are arrays, one value per triangle
-      hmin = np.array([cell.h() for cell in cells(mesh)])
+      hmin = np.array([cell.h() for cell in cells(mesh)]) 
       area = np.array([cell.volume() for cell in cells(mesh)])
       cfl = 1.0
       X0 = FunctionSpace(mesh, "DG", 0)
       cf = TestFunction(X0)
 
-      fcont = open('control.dat','w')
+      fcont = open('control.dat','w') # Write control data in .dat file
       if with_control:
          # compute indices of velocity and temperature
          freeinds,pinds,bcinds2 = self.get_indices_lagrange()
          vTinds = np.setdiff1d(freeinds,pinds,assume_unique=True).astype(np.int32)
-         gain = sio.loadmat('gain0.mat')
+         gain = sio.loadmat('gain.mat')
 
       fhist = open('history.dat','w')
 
