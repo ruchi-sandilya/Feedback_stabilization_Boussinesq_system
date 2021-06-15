@@ -1,5 +1,6 @@
 from dolfin import *
 from bmark import *
+import pdb # python debug
 import numpy as np
 import scipy.sparse as sps
 import scipy.io as sio
@@ -50,14 +51,9 @@ class HeatSource(UserExpression):
    def eval(self, value, x):
       value[0] = 7.0*sin(2.0*pi*x[0])*cos(2.0*pi*x[1])
       return value
-#-----------------------------------------------------------------------------
-class SourcePerturbation(UserExpression):
-   def eval(self, value, x):
-      value[0] = sin(2.0*pi*x[0])*cos(2.0*pi*x[1])
-      return value
 #------------------------------------------------------------------------------
 class HeatFlux(UserExpression):
-   def __init__(self,amp, **kwargs):
+   def __init__(self, amp, **kwargs):
       super().__init__(**kwargs)
       self.amp = amp
    def eval(self, value, x):
@@ -68,13 +64,13 @@ class HeatFlux(UserExpression):
          value[0] = 0.4 * exp(-0.00001/ff)
       else:
          value[0] = 0.0
-      #value[0] *= self.amp
+      value[0] *= self.amp
       return value
 #-----------------------------------------------------------------------------
 # Velocity at inflow boundary
 class velocity(UserExpression):
-   def __init__(self, amp,  y3, y4, **kwargs):
-      super().__init__(**kwargs)      
+   def __init__(self, amp, y3, y4, **kwargs):
+      super().__init__(**kwargs)
       self.amp = amp
       self.y3  = y3
       self.y4  = y4
@@ -142,6 +138,16 @@ class allvar(UserExpression):
    def value_shape(self):
       return (4,)
 
+# Define the oscillatory analytic function
+class Pfunc(UserExpression):
+   def eval(self,value,x):
+      value[0] = sin(10*pi*x[0])*cos(10*pi*x[1]) # x velocity perturbation
+      value[1] = -cos(10*pi*x[0])*sin(10*pi*x[1]) # y velocity perturbation
+      value[2] = sin(10*pi*x[0]*x[1]) # temperature perturbation
+      value[3] = 0.0 # pressure perturbation
+      return value
+   def value_shape(self):
+      return (4,)
 
 #-----------------------------------------------------------------------------
 # Returns symmetric part of strain tensor
@@ -213,13 +219,13 @@ class NSProblem():
       Qe = FiniteElement("CG", mesh.ufl_cell(), self.pdeg)
       self.X = FunctionSpace(mesh, MixedElement([Ve,We,Qe]))
 
-      print ('Number of degrees of freedom = ', self.X.dim())
+      print( 'Number of degrees of freedom = ', self.X.dim())
 
       # Velocity bc
       noslipbc1 = DirichletBC(self.X.sub(0), (0,0), sub_domains, 0)
       noslipbc2 = DirichletBC(self.X.sub(0), (0,0), sub_domains, 3)
       # velocity control boundary
-      self.gs   = velocity(0.0,self.y3,self.y4,degree=self.udeg)
+      self.gs   = velocity(0.0,self.y3,self.y4, degree=self.udeg)
       vconbc    = DirichletBC(self.X.sub(0), self.gs, sub_domains, 2)
       # Temperature bc
       tbc1    = DirichletBC(self.X.sub(1), 0.0, sub_domains, 0)
@@ -255,26 +261,26 @@ class NSProblem():
       #info(solver.parameters, True)
 
       for R in Relist:
-         print ("-----------------------------------------------------")
-         print ("Reynolds number = ", R) 
-         print ("-----------------------------------------------------")
+         print( "-----------------------------------------------------")
+         print( "Reynolds number = ", R )
+         print( "-----------------------------------------------------")
          Re.assign(R)
          solver.solve()
          u = as_vector((up[0],up[1]))
          d = assemble(div(u)*div(u)*dx)
-         print ("Divergence L2 norm = ", np.sqrt(d))
+         print( "Divergence L2 norm = ", np.sqrt(d))
 
       # Save FE solution
-      print ("Saving FE solution into steady.xml")
-      File("steady.xml") << up.vector()
+      print( "Saving FE solution into steady.xml")
+      File("steady"+str(int(self.Re))+".xml") << up.vector()
       # Save vtk format
       u,T,p = up.split()
       u.rename("v","velocity"); T.rename("T","temperature"); p.rename("p","pressure");
-      print ("Saving vtk files steady_u.pvd, steady_p.pvd, steady_T.pvd")
-      File("steady_u.pvd") << u
-      File("steady_p.pvd") << p
-      File("steady_T.pvd") << T
-   
+      print( "Saving vtk files steady_u.pvd, steady_p.pvd, steady_T.pvd")
+      File("steady"+str(int(self.Re))+"_u.pvd") << u
+      File("steady"+str(int(self.Re))+"_p.pvd") << p
+      File("steady"+str(int(self.Re))+"_T.pvd") << T
+
    # Returns dof indices which are free, used for nonlinear solve
    # freeinds = free indices of velocity, temperature, pressure
    # pinds    = free indices of pressure
@@ -335,7 +341,6 @@ class NSProblem():
 
       return freeinds, pinds, bcinds2
 
-
 ###################################################################
 
 # Generate linear state representation
@@ -345,7 +350,7 @@ class NSProblem():
        
       # Load Stationary solution from file
       ups = Function(self.X)
-      File("steady.xml") >> ups.vector()
+      File("steady"+str(int(self.Re)) +".xml") >> ups.vector()
       us, Ts = as_vector((ups[0],ups[1])), ups[2]
 
       u,T,p = TrialFunctions(self.X)
@@ -377,19 +382,19 @@ class NSProblem():
 
       freeinds,pinds,bcinds2 = self.get_indices_lagrange()
 
-      print ("Writing free indices into freeinds.txt")
+      print( "Writing free indices into freeinds.txt")
       f = open('freeinds.txt','w')
       for item in freeinds:
           f.write("%d\n" % item)
       f.close()
 
-      print ("Writing pressure indices into pinds.txt")
+      print( "Writing pressure indices into pinds.txt")
       f = open('pinds.txt','w')
       for item in pinds:
           f.write("%d\n" % item)
       f.close()
 
-      print ("Writing control boundary indices into bcinds2.txt")
+      print( "Writing control boundary indices into bcinds2.txt")
       f = open('bcinds2.txt','w')
       for item in bcinds2:
           f.write("%d\n" % item)
@@ -397,57 +402,57 @@ class NSProblem():
 
       # indices of velocity control
       vinds = list(self.vbc.get_boundary_values().keys())
+
       # indices of temperature control
       tinds = list(self.tbc.get_boundary_values().keys())
 
-      print ('size of pinds =', len(pinds))
-      print ('size of vinds =', len(vinds))
-      print ('size of tinds =', len(tinds))
+      print( 'size of pinds =', len(pinds))
+      print( 'size of vinds =', len(vinds))
+      print( 'size of tinds =', len(tinds))
       
       # mass matrix
       Ma   = Ma  [freeinds,:][:,freeinds]
       Aa   = Aa  [freeinds,:][:,freeinds]
       As   = As  [freeinds,:][:,bcinds2]
-      Avs1 = Avs1 [freeinds,:][:,vinds]
-      Ats2 = Ats2 [freeinds,:][:,tinds]
+      Avs1 = Avs1[freeinds,:][:,vinds]
+      Ats2 = Ats2[freeinds,:][:,tinds]
 
-      print ("Size of Ma   = ",Ma.shape)
-      print ("Size of Aa   = ",Aa.shape)
-      print ("Size of As   = ",As.shape)
-      print ("Size of Avs1 = ",Avs1.shape)
-      print ("Size of Ats2 = ",Ats2.shape)
+      print( "Size of Ma   = ",Ma.shape)
+      print( "Size of Aa   = ",Aa.shape)
+      print( "Size of As   = ",As.shape)
+      print( "Size of Avs1 = ",Avs1.shape)
+      print( "Size of Ats2 = ",Ats2.shape)
 
       # velocity control operator
       alpha = velocity(1.0,self.y3,self.y4,degree=self.udeg)
       Bv = assemble(inner(alpha,v)*self.ds(2)).get_local()
       Bv = Bv[vinds]
-      print ("Size of Bv =",Bv.shape[0])
+      print( "Size of Bv =",Bv.shape[0])
       # temperature control operator
       beta = temperature(1.0,self.y3,self.y4,degree=self.tdeg)
       Bt = assemble(beta*S*self.ds(2)).get_local()
       Bt = Bt[tinds]
-      print ("Size of Bt =",Bt.shape[0])
+      print( "Size of Bt =",Bt.shape[0])
 
       # heat flux control operator
       gamma = HeatFlux(1.0,degree=self.tdeg)
       Bh = assemble(gamma*S*self.ds(3)).get_local()
       Bh = Bh[freeinds]
-      print ("Size of Bh =",Bh.shape[0])
+      print( "Size of Bh =",Bh.shape[0])
 
       # Save matrices in matlab format
-      print ("Saving linear system into linear.mat")
-      sio.savemat('linear.mat', 
+      print( "Saving linear system into linear.mat")
+      sio.savemat("linear"+str(int(self.Re))+".mat", 
               mdict={'Ma':Ma,'Aa':Aa,'Avs1':Avs1,'Ats2':Ats2,'Bv':Bv,'Bt':Bt,'Bh':Bh}, 
               oned_as='column')
-
-   ##### Compute most unstable eigenvectors ##########
+##### Compute most unstable eigenvectors ##########
    # Compute eigenvectors of linearized NS around steady state solution
    def compute_eigenvectors(self, k):
       parameters['linear_algebra_backend'] = 'Eigen'
        
       # Load Stationary solution from file
       ups = Function(self.X)
-      File("steady.xml") >> ups.vector()
+      File("steady"+str(int(self.Re)) +".xml") >> ups.vector()
       us= as_vector((ups[0],ups[1]));
       Ts= ups[2]
 
@@ -497,19 +502,19 @@ class NSProblem():
 
       # Save real part of eigenvector. << outputs only real part
       ua.vector()[freeinds] = np.array(vecs[:,0].real)
-      File("evec1.xml") << ua.vector()
+      File("evec1"+str(int(self.Re))+".xml") << ua.vector()
       u,T,p = ua.split()
-      File("evec1_u.pvd") << u
-      File("evec1_T.pvd") << T
-      File("evec1_p.pvd") << p
+      File("evec1_u"+str(int(self.Re))+".pvd") << u
+      File("evec1_T"+str(int(self.Re))+".pvd") << T
+      File("evec1_p"+str(int(self.Re))+".pvd") << p
 
       # Save imaginary part of eigenvector. << outputs only real part
       ua.vector()[freeinds] = np.array(vecs[:,0].imag)
-      File("evec2.xml") << ua.vector()
+      File("evec2"+str(int(self.Re))+".xml") << ua.vector()
       u,T,p = ua.split()
-      File("evec2_u.pvd") << u
-      File("evec2_T.pvd") << T
-      File("evec2_p.pvd") << p
+      File("evec2_u"+str(int(self.Re))+".pvd") << u
+      File("evec2_T"+str(int(self.Re))+".pvd") << T
+      File("evec2_p"+str(int(self.Re))+".pvd") << p
 
       # Compute eigenvalues/vectors of (A^T,M^T)
       # First transpose A; M is symmetric
@@ -520,7 +525,7 @@ class NSProblem():
           print (np.real(val), np.imag(val))
       
       for e in range(0,k,2):
-          filename = "evec"+str(e+1)+"a"
+          filename = "evec"+str(e+1)+"a"+str(int(self.Re))
           print ("Writing into file ", filename)
           # Save real part of eigenvector. << outputs only real part
           ua.vector()[freeinds] = np.array(vecs[:,e].real)
@@ -530,7 +535,7 @@ class NSProblem():
           File(filename+"_T.pvd") << T
           File(filename+"_p.pvd") << p
 
-          filename = "evec"+str(e+2)+"a"
+          filename = "evec"+str(e+2)+"a"+str(int(self.Re))
           print ("Writing into file ", filename)
           # Save imaginary part of eigenvector. << outputs only real part
           ua.vector()[freeinds] = np.array(vecs[:,e].imag)
@@ -542,52 +547,71 @@ class NSProblem():
 
 ###################################################################
    # Runs nonlinear model
-   def run(self,with_control=True): # Apply Control TRUE or FALSE
+   def run(self,with_control=True):
       up = Function(self.X)
       vp = TestFunction(self.X)
       v,S,q = TestFunctions(self.X)
-      #hs = HeatSource(degree=2)
-      sp = SourcePerturbation(degree=2)  # Perturbation as a source function
-
       Re = Constant(self.Re)
       Gr = Constant(self.Gr)
       Pr = Constant(self.Pr)
       F = nonlinear_form(Re,Gr,Pr,self.hf,self.ds,up,vp)
 
-
       mesh = Mesh("square.xml")
-      # Define  parameters for adapted time stepping
       # hmin, area are arrays, one value per triangle
-      hmin = np.array([cell.h() for cell in cells(mesh)]) 
+      hmin = np.array([cell.h() for cell in cells(mesh)])
       area = np.array([cell.volume() for cell in cells(mesh)])
       cfl = 1.0
       X0 = FunctionSpace(mesh, "DG", 0)
       cf = TestFunction(X0)
 
-      fcont = open('control.dat','w') # Write control data in .dat file
+      fcont = open('control'+str(int(self.Re))+'.dat','w')
       if with_control:
          # compute indices of velocity and temperature
          freeinds,pinds,bcinds2 = self.get_indices_lagrange()
          vTinds = np.setdiff1d(freeinds,pinds,assume_unique=True).astype(np.int32)
-         gain = sio.loadmat('gain.mat')
+         gain = sio.loadmat('gain_mat_files/gain'+str(int(self.Re))+'.mat')
 
-      fhist = open('history.dat','w')
-
+      fhist = open('history'+str(int(self.Re))+'.dat','w')
+      
       ups = Function(self.X)
-      File("steady.xml") >> ups.vector()
+      File("steady"+str(int(self.Re))+".xml") >> ups.vector()
       us,Ts,ps = ups.split()
       KEs = assemble(0.5*inner(us,us)*dx)
-      print ('Kinetic energy of steady state =', KEs)
+      print( 'Kinetic energy of steady state =', KEs)
 
       # Set initial condition
       up1 = Function(self.X)
       up1.assign(ups)
 
       
-      uppert = Function(self.X)
+      # Add perturbation using unstable eigenvector
+      #uppert = Function(self.X)
+      #File("evec1.xml") >> uppert.vector()
+      #up1.vector()[:] += 0.1 * uppert.vector()
+      
+      # Add perturbation using analytic function Pfunc
+      uppert = Function(self.X) 
+      upp = Function(self.X)
+      pfun = Pfunc(degree=2)
+      upp = interpolate(pfun,self.X)
+      uppert.vector()[:] = upp.vector()
+      up1.vector()[:] += 0.1 * uppert.vector()
+      
+      # Save solutions
+      #fu = File("u"+str(int(self.Re))+".xml")
+      #ft = File("T"+str(int(self.Re))+".xml")
 
-      fu = File("u.pvd")
-      ft = File("T.pvd")
+      
+      u1,T1,p1 = up1.split(True) 
+      #fu << (u1,0.0)
+      #ft << (T1,0.0)  
+      Su = []
+      ST = []
+      Sp = []
+      Su.append(u1.vector()[:])
+      ST.append(T1.vector()[:])
+      Sp.append(p1.vector()[:])
+      
 
       # Compute KE
       u,T,p = up1.split()
@@ -595,26 +619,27 @@ class NSProblem():
       # Compute perturbation energy
       uppert.vector()[:] = up1.vector() - ups.vector()
       u,T,p = uppert.split()
-      #fu << (u,0.0)
-      #ft << (T,0.0)
       dKE = assemble(0.5*inner(u,u)*dx)
       dHE = assemble(0.5*inner(T,T)*dx)
-      print ('Kinetic energy =', KEs, KE, dKE, dHE)
+      print( 'Kinetic energy =', KEs, KE, dKE, dHE)
       fhist.write(str(0)+" "+str(KEs)+" "+str(KE)+" "+str(dKE)+" "+str(dHE)+"\n")
-       
-      # Smooth bump function gt(t) to be multiplied with source perturbation; middle of the bump is at t0
-      gt = Expression('Alpha*exp(-Beta*(t-t0)*(t-t0))', degree = 2, Alpha = 1.0, Beta = 50.0, t0 = 2.0, t = 0.0)
-
+      
+      
+ 
       # velocity to compute initial dt
       vel = as_vector((up1[0],up1[1]))
       Fvel = sqrt(dot(vel,vel))*cf*dx(mesh)
       vel_avg = assemble(Fvel).get_local()/area
+      #vel_avg_matrix = []
+      #vel_avg_matrix.append(vel_avg)
+      #vel_avg_matrix = np.load('vel_avg_matrix_120.npy')
+      #vel_avg = vel_avg_matrix[0]
       dt0 = hmin / (vel_avg + 1.0e-13)
       dt00 = cfl*dt0.min()
       print("dt00 = ", dt00)
       
   
-      final_time = 30
+      final_time = 0.1
       time, iter = 0, 0
 
       if with_control:
@@ -630,7 +655,7 @@ class NSProblem():
       idt0 = Constant(0)
       B1 = (idt0)*inner(up[0] - up1[0], vp[0])*dx     \
          + (idt0)*inner(up[1] - up1[1], vp[1])*dx     \
-         + (idt0)*inner(up[2] - up1[2], vp[2])*dx + F - gt*sp*S*dx   # Add perturbation in source function
+         + (idt0)*inner(up[2] - up1[2], vp[2])*dx + F 
       idt0.assign(1/dt00)
 
       dup = TrialFunction(self.X)
@@ -642,29 +667,36 @@ class NSProblem():
       solver1.solve()
       iter += 1
       time += dt00
-      print ('Iter = {:5d}, t = {:f}'.format(iter, time))
+      print( 'Iter = {:5d}, t = {:f}'.format(iter, time))
+      
+      u1,T1,p1 = up.split(True)
+      #fu << (u1,time)
+      #ft << (T1,time)
+      Su.append(u1.vector()[:])
+      ST.append(T1.vector()[:])
+      Sp.append(p1.vector()[:])
 
+     
       # Compute KE
       u,T,p = up.split()
       KE  = assemble(0.5*inner(u,u)*dx)
+      
       # Compute perturbation energy
       uppert.vector()[:] = up.vector() - ups.vector()
       u,T,p = uppert.split()
-      #fu << (u,time)
-      #ft << (T,time)
       dKE = assemble(0.5*inner(u,u)*dx)
       dHE = assemble(0.5*inner(T,T)*dx)
-      print ('Kinetic energy =', KEs, KE, dKE, dHE)
+      print( 'Kinetic energy =', KEs, KE, dKE, dHE)
       fhist.write(str(time)+" "+str(KEs)+" "+str(KE)+" "+str(dKE)+" "+str(dHE)+"\n")
-      print ('--------------------------------------------------------------')
-
+      print( '--------------------------------------------------------------')
+      
       # From now on use BDF2
       up2 = Function(self.X)
       idt = Constant(0)
       rdt = Constant(0)
       B2 = (idt)*inner((2*rdt+1)/(rdt+1)*up[0] - (rdt+1)*up1[0] + (rdt**2)/(rdt+1)*up2[0], vp[0])*dx     \
          + (idt)*inner((2*rdt+1)/(rdt+1)*up[1] - (rdt+1)*up1[1] + (rdt**2)/(rdt+1)*up2[1], vp[1])*dx     \
-         + (idt)*inner((2*rdt+1)/(rdt+1)*up[2] - (rdt+1)*up1[2] + (rdt**2)/(rdt+1)*up2[2], vp[2])*dx + F - gt*sp*S*dx # Add perturbation in source function
+         + (idt)*inner((2*rdt+1)/(rdt+1)*up[2] - (rdt+1)*up1[2] + (rdt**2)/(rdt+1)*up2[2], vp[2])*dx + F 
       dB2 = derivative(B2, up, dup)
       problem2 = NonlinearVariationalProblem(B2, up, self.bc, dB2) 
       solver2  = NonlinearVariationalSolver(problem2)
@@ -675,9 +707,11 @@ class NSProblem():
          vel = as_vector((up1[0],up1[1]))
          Fvel = sqrt(dot(vel,vel))*cf*dx(mesh)
          vel_avg = assemble(Fvel).get_local()/area
+         #vel_avg_matrix.append(vel_avg)
+         #vel_avg = vel_avg_matrix[iter]
          dt0 = hmin / (vel_avg + 1.0e-13)
          dt = cfl*dt0.min()
-         #print("dt = ", dt)
+         print("dt = ", dt)
          idt.assign(1/dt)
          rdt.assign(dt/dt00)
          # initial guess by extrapolation
@@ -695,21 +729,37 @@ class NSProblem():
          solver2.solve()
          iter += 1
          time += dt
-         print ('Iter = {:5d}, t = {:f}, dt = {:f}'.format(iter, time, dt))
+         print( 'Iter = {:5d}, t = {:f}, dt = {:f}'.format(iter, time, dt))
+         
+         u1,T1,p1 = up.split(True) 
+         #if iter%10 == 0:
+         #fu << (u1,time)
+         #ft << (T1,time)   
+         
+         Su.append(u1.vector()[:])
+         ST.append(T1.vector()[:])
+         Sp.append(p1.vector()[:])
+         
          # Compute KE
          u,T,p = up.split()
          KE  = assemble(0.5*inner(u,u)*dx)
+         
          # Compute perturbation energy
          uppert.vector()[:] = up.vector() - ups.vector()
          u,T,p = uppert.split()
-         #if iter%10 == 0:
-            #fu << (u,time)
-            #ft << (T,time)
          dKE = assemble(0.5*inner(u,u)*dx)
          dHE = assemble(0.5*inner(T,T)*dx)
-         print ('Kinetic energy =', KEs, KE, dKE, dHE)
+         print( 'Kinetic energy =', KEs, KE, dKE, dHE)
          fhist.write(str(time)+" "+str(KEs)+" "+str(KE)+" "+str(dKE)+" "+str(dHE)+"\n")
          fhist.flush()
-         print ('--------------------------------------------------------------')
-
+         print( '--------------------------------------------------------------')
       fhist.close()
+      #Binary data
+      #np.save('solu'+str(int(self.Re))+'.npy', Su)
+      #np.save('solT'+str(int(self.Re))+'.npy', ST)
+      #np.save('solp'+str(int(self.Re))+'.npy', Sp)
+      
+
+      
+      #print('Shape of vel_avg_matrix = ', np.shape(vel_avg_matrix))
+      #np.save('vel_avg_matrix_120', vel_avg_matrix)
