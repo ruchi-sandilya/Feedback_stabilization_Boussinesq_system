@@ -558,18 +558,18 @@ class NSProblem():
 
       mesh = Mesh("square.xml")
       # hmin, area are arrays, one value per triangle
-      hmin = np.array([cell.h() for cell in cells(mesh)])
-      area = np.array([cell.volume() for cell in cells(mesh)])
-      cfl = 1.0
-      X0 = FunctionSpace(mesh, "DG", 0)
-      cf = TestFunction(X0)
+      #hmin = np.array([cell.h() for cell in cells(mesh)])
+      #area = np.array([cell.volume() for cell in cells(mesh)])
+      #cfl = 1.0
+      #X0 = FunctionSpace(mesh, "DG", 0)
+      #cf = TestFunction(X0)
 
       fcont = open('control'+str(int(self.Re))+'.dat','w')
       if with_control:
          # compute indices of velocity and temperature
          freeinds,pinds,bcinds2 = self.get_indices_lagrange()
          vTinds = np.setdiff1d(freeinds,pinds,assume_unique=True).astype(np.int32)
-         gain = sio.loadmat('gain_mat_files/gain'+str(int(self.Re))+'.mat')
+         gain = sio.loadmat('gain'+str(int(self.Re))+'.mat')
 
       fhist = open('history'+str(int(self.Re))+'.dat','w')
       
@@ -585,17 +585,17 @@ class NSProblem():
 
       
       # Add perturbation using unstable eigenvector
-      #uppert = Function(self.X)
-      #File("evec1.xml") >> uppert.vector()
-      #up1.vector()[:] += 0.1 * uppert.vector()
+      uppert = Function(self.X)
+      File("evec1"+str(int(self.Re))+".xml") >> uppert.vector()
+      up1.vector()[:] += 0.1 * uppert.vector()
       
       # Add perturbation using analytic function Pfunc
-      uppert = Function(self.X) 
-      upp = Function(self.X)
-      pfun = Pfunc(degree=2)
-      upp = interpolate(pfun,self.X)
-      uppert.vector()[:] = upp.vector()
-      up1.vector()[:] += 0.1 * uppert.vector()
+      #uppert = Function(self.X) 
+      #upp = Function(self.X)
+      #pfun = Pfunc(degree=2)
+      #upp = interpolate(pfun,self.X)
+      #uppert.vector()[:] = upp.vector()
+      #up1.vector()[:] += 0.1 * uppert.vector()
       
       # Save solutions
       #fu = File("u"+str(int(self.Re))+".xml")
@@ -627,19 +627,17 @@ class NSProblem():
       
  
       # velocity to compute initial dt
-      vel = as_vector((up1[0],up1[1]))
-      Fvel = sqrt(dot(vel,vel))*cf*dx(mesh)
-      vel_avg = assemble(Fvel).get_local()/area
-      #vel_avg_matrix = []
-      #vel_avg_matrix.append(vel_avg)
-      #vel_avg_matrix = np.load('vel_avg_matrix_120.npy')
-      #vel_avg = vel_avg_matrix[0]
-      dt0 = hmin / (vel_avg + 1.0e-13)
-      dt00 = cfl*dt0.min()
-      print("dt00 = ", dt00)
+      #vel = as_vector((up1[0],up1[1]))
+      #Fvel = sqrt(dot(vel,vel))*cf*dx(mesh)
+      #vel_avg = assemble(Fvel).get_local()/area
+      #dt0 = hmin / (vel_avg + 1.0e-13)
+      #dt00 = cfl*dt0.min()
+      #print("dt00 = ", dt00)
       
-  
-      final_time = 0.1
+      # For fixed time step
+      dt = 0.1
+      dt00 = dt
+      final_time = 500*dt
       time, iter = 0, 0
 
       if with_control:
@@ -704,13 +702,11 @@ class NSProblem():
       while time < final_time:
          up2.assign(up1)
          up1.assign(up)
-         vel = as_vector((up1[0],up1[1]))
-         Fvel = sqrt(dot(vel,vel))*cf*dx(mesh)
-         vel_avg = assemble(Fvel).get_local()/area
-         #vel_avg_matrix.append(vel_avg)
-         #vel_avg = vel_avg_matrix[iter]
-         dt0 = hmin / (vel_avg + 1.0e-13)
-         dt = cfl*dt0.min()
+         #vel = as_vector((up1[0],up1[1]))
+         #Fvel = sqrt(dot(vel,vel))*cf*dx(mesh)
+         #vel_avg = assemble(Fvel).get_local()/area
+         #dt0 = hmin / (vel_avg + 1.0e-13)
+         #dt = cfl*dt0.min()
          print("dt = ", dt)
          idt.assign(1/dt)
          rdt.assign(dt/dt00)
@@ -755,11 +751,9 @@ class NSProblem():
          print( '--------------------------------------------------------------')
       fhist.close()
       #Binary data
-      #np.save('solu'+str(int(self.Re))+'.npy', Su)
-      #np.save('solT'+str(int(self.Re))+'.npy', ST)
-      #np.save('solp'+str(int(self.Re))+'.npy', Sp)
+      np.save('solu'+str(int(self.Re))+'.npy', Su)
+      np.save('solT'+str(int(self.Re))+'.npy', ST)
+      np.save('solp'+str(int(self.Re))+'.npy', Sp)
       
 
       
-      #print('Shape of vel_avg_matrix = ', np.shape(vel_avg_matrix))
-      #np.save('vel_avg_matrix_120', vel_avg_matrix)

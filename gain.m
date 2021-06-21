@@ -1,8 +1,8 @@
 clc
 clear all
-load linear.mat
-load eig1.mat
-load eig2.mat
+load linear100.mat
+load eig1_100.mat
+load eig2_100.mat
 load freeinds.txt
 load pinds.txt
 
@@ -202,5 +202,5 @@ Zy = sparse(Zy);
 Pu = sparse(Pu);
 Kt = Ru \ ((B' * Z) * Pu * (Zy' * E11));
 Kt = full(Kt); % Feedback matrix
-save('gain.mat','Kt')
+save('gain100.mat','Kt')
 
