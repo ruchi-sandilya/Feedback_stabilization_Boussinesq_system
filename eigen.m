@@ -1,7 +1,7 @@
 % Matlab code for computing eigenvalues of linearized operator
 
 clear all
-load linear.mat
+load linear100.mat
 load freeinds.txt
 load pinds.txt
 who
@@ -24,7 +24,7 @@ opts.p = 50;
 % Compute eigenvalues,vectors of (A,M)
 [Vt,D1,flag] = eigs(A,M,ne,'SM',opts);
 assert(flag==0)
-save('eig1.mat','Vt','D1')
+save('eig1_100.mat','Vt','D1')
 disp('Eigenvalues of A')
 D1=diag(D1)
 
@@ -37,7 +37,7 @@ fprintf(1, 'Number of unstable eigenvalues of A = %d\n', nu)
 % Compute eigenvalues,vectors of (A^T,M^T)
 [Zt,D2,flag] = eigs(A',M',ne,'SM',opts);
 assert(flag==0)
-save('eig2.mat','Zt','D2')
+save('eig2_100.mat','Zt','D2')
 disp('Eigenvalues of A^T')
 D2=diag(D2)
 
