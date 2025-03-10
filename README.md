@@ -31,7 +31,14 @@ Use `linear.py` to solve the linearized system.
 python linear.py
 ```
 
-### 3. Run `run.py`
+### 3. Run `gain.m`
+Use `gain.m` to compute the gain matrix.
+
+```bash
+matlab gain.m
+```
+
+### 4. Run `run.py`
 Use `run.py` to solve the full nonlinear dynamical system.
 
 ```bash
